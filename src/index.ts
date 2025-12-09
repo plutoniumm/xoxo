@@ -2,10 +2,13 @@ import * as THREE from 'three';
 import {
   OrbitControls
 } from 'three/examples/jsm/controls/OrbitControls.js';
+import Shapes from './geometry';
 
+const MOTION = 0.2;
 const CELL_SIZE = 2;
-const GAP = 0.2;
+const GAP = 1;
 const GRID_SIZE = 3;
+
 const OFFSET = ((GRID_SIZE - 1) * (CELL_SIZE + GAP)) / 2;
 
 let currentPlayer: 'x' | 'o' = 'x';
@@ -28,7 +31,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-// --- Lighting ---
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
 
@@ -36,14 +38,15 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 
-// --- Controls ---
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.minDistance = 5;
 controls.maxDistance = 30;
 
-// --- Geometries ---
+// clock and marker registry for slow rotation
+const clock = new THREE.Clock();
+const markers: THREE.Object3D[] = [];
 
 // 1. The Cell (Hitbox + Visual Guide)
 const cellGeometry = new THREE.BoxGeometry(CELL_SIZE, CELL_SIZE, CELL_SIZE);
@@ -60,47 +63,6 @@ const hoverMaterial = new THREE.MeshBasicMaterial({
   wireframe: false
 });
 
-// 2. 'O' Sphere
-const sphereGeo = new THREE.SphereGeometry(CELL_SIZE * 0.35, 32, 32);
-const sphereMat = new THREE.MeshStandardMaterial({
-  color: 0x3399ff,
-  roughness: 0.2,
-  metalness: 0.5
-});
-
-// 3. 'X' 3D Star
-// Create a star shape for extrusion
-const starShape = new THREE.Shape();
-const points = 5;
-const outerRadius = CELL_SIZE * 0.4;
-const innerRadius = CELL_SIZE * 0.2;
-for (let i = 0; i < points * 2; i++) {
-  const angle = (i * Math.PI) / points;
-  const r = i % 2 === 0 ? outerRadius : innerRadius;
-  const x = Math.cos(angle) * r;
-  const y = Math.sin(angle) * r;
-  if (i === 0) starShape.moveTo(x, y);
-  else starShape.lineTo(x, y);
-}
-starShape.closePath();
-
-const starExtrudeSettings = {
-  depth: CELL_SIZE * 0.2,
-  bevelEnabled: true,
-  bevelThickness: 0.05,
-  bevelSize: 0.05,
-  bevelSegments: 2
-};
-const starGeo = new THREE.ExtrudeGeometry(starShape, starExtrudeSettings);
-// Center geometry
-starGeo.center();
-const starMat = new THREE.MeshStandardMaterial({
-  color: 0xffaa00,
-  roughness: 0.2,
-  metalness: 0.6
-});
-
-// --- Grid Construction ---
 const cells: THREE.Mesh[] = [];
 
 for (let x = 0; x < GRID_SIZE; x++) {
@@ -142,7 +104,6 @@ function placeMarker (cell: THREE.Mesh) {
 
   if (board[gx][gy][gz] !== null || !gameActive) return;
 
-  // Update State
   board[gx][gy][gz] = currentPlayer;
   cell.userData.occupied = true;
   cell.material = new THREE.MeshBasicMaterial({
@@ -152,21 +113,17 @@ function placeMarker (cell: THREE.Mesh) {
     wireframe: true
   }); // Dim the box
 
-  // Create Mesh
-  let markerMesh;
+  let markerMesh: THREE.Object3D;
   if (currentPlayer === 'x') {
-    markerMesh = new THREE.Mesh(starGeo, starMat);
-    // Add a bit of rotation to the star to make it look dynamic
-    markerMesh.rotation.x = Math.random() * Math.PI;
-    markerMesh.rotation.y = Math.random() * Math.PI;
+    markerMesh = Shapes.half_cross(CELL_SIZE);
   } else {
-    markerMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    markerMesh = Shapes.half_sphere(CELL_SIZE);
   }
 
   markerMesh.position.copy(cell.position);
   scene.add(markerMesh);
+  markers.push(markerMesh); // track for slow rotation
 
-  // Animation (Simple pop-in)
   markerMesh.scale.set(0, 0, 0);
   let scale = 0;
   const animateIn = () => {
@@ -178,12 +135,10 @@ function placeMarker (cell: THREE.Mesh) {
   };
   animateIn();
 
-  // Check Win
   const winLine = checkWin();
   if (winLine) {
     endGame(winLine);
   } else {
-    // Switch Turn
     currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
     updateUI();
   }
@@ -342,7 +297,7 @@ function endGame (winLine: {
 
 function updateUI () {
   const turnEl = document.getElementById('turn-indicator')!;
-  turnEl.innerText = currentPlayer === 'x' ? 'X (Star)' : 'O (Sphere)';
+  turnEl.innerText = currentPlayer === 'x' ? 'X (Cross)' : 'O (Sphere)';
   turnEl.style.color = currentPlayer === 'x' ? '#ffaa00' : '#3399ff';
 }
 
@@ -391,6 +346,10 @@ window.addEventListener('click', () => {
 
 function animate () {
   requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  for (const m of markers) {
+    m.rotation.x += delta * MOTION;
+  }
   controls.update();
   renderer.render(scene, camera);
 }
