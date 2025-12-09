@@ -1,0 +1,31 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  overflow: hidden; /* Prevent scrollbars */
+  background-color: #111;
+  color: white;
+}
+
+#info {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 10px;
+  border-radius: 5px;
+  pointer-events: none; /* Let clicks pass through to canvas */
+  user-select: none;
+}
+
+h1 {
+  font-size: 1.2rem;
+  margin: 0 0 5px 0;
+}
+
+p {
+  font-size: 0.9rem;
+  margin: 0;
+}
