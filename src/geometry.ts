@@ -48,6 +48,14 @@ const Shapes = {
     group.add(s);
     group.add(c);
     return group;
+  },
+  blank (size: number): THREE.Object3D {
+    const geo = new THREE.BoxGeometry(size * 0.35, size * 0.35, size * 0.35);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x3399ff, roughness: 0.01, metalness: 0.5,
+    });
+
+    return new THREE.Mesh(geo, mat);
   }
 };
 
