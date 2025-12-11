@@ -2,17 +2,15 @@ import * as THREE from 'three';
 import CONF from './conf';
 const { COLORS } = CONF;
 
-const SOFT = {
+const material = (color: number) => new THREE.MeshStandardMaterial({
+  color,
   roughness: 0.35,
   metalness: 0.05
-};
+});
 
 function buildSphere (size: number, scale = 1): THREE.Mesh {
   const geo = new THREE.SphereGeometry(size * 0.35 * scale, 32, 32);
-  const mat = new THREE.MeshStandardMaterial({
-    color: COLORS.softBlue,
-    ...SOFT
-  });
+  const mat = material(COLORS.salmon);
 
   return new THREE.Mesh(geo, mat);
 }
@@ -21,20 +19,14 @@ function buildCross (size: number, scale = 1): THREE.Group {
   const SZ = size * scale;
   const [L, B, H] = [SZ * 0.8, SZ * 0.12, SZ * 0.2];
   const geo = new THREE.BoxGeometry(L, B, H);
-  const mat = new THREE.MeshStandardMaterial({
-    color: COLORS.lime,
-    ...SOFT
-  });
+  const mat = material(COLORS.cream);
 
-  const bar1 = new THREE.Mesh(geo, mat);
-  const bar2 = new THREE.Mesh(geo.clone(), mat.clone());
-  bar1.rotateZ(Math.PI / 4);
-  bar2.rotateZ(-Math.PI / 4);
+  const b1 = new THREE.Mesh(geo, mat);
+  const b2 = new THREE.Mesh(geo.clone(), mat.clone());
+  b1.rotateZ(Math.PI / 4);
+  b2.rotateZ(-Math.PI / 4);
 
-  const group = new THREE.Group();
-  group.add(bar1, bar2);
-
-  return group;
+  return new THREE.Group().add(b1, b2);
 }
 
 const Shapes = {
@@ -51,23 +43,18 @@ const Shapes = {
     return buildCross(size, 0.5);
   },
   both (size: number) {
-    const g = new THREE.Group();
     const s = buildSphere(size, 0.5);
     const c = buildCross(size, 0.5);
 
     s.position.x = -size * 0.25;
     c.position.x = size * 0.25;
-    g.add(s, c);
 
-    return g;
+    return new THREE.Group().add(s, c);
   },
   blank (size: number) {
-    const geo = new THREE.BoxGeometry(size * 0.35, size * 0.35, size * 0.35);
-
-    const mat = new THREE.MeshStandardMaterial({
-      color: COLORS.deepIndigo,
-      ...SOFT
-    });
+    const sz = size * 0.25;
+    const geo = new THREE.BoxGeometry(sz, sz, sz);
+    const mat = material(COLORS.lime);
 
     return new THREE.Mesh(geo, mat);
   }

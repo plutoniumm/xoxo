@@ -12,7 +12,6 @@ export default {
     cream: 0xEFDEA2,
     salmon: 0xFC635A,
     softBlue: 0x9ABAEC,
-    deepIndigo: 0x433E5B,
     rose: 0xDF8C88,
     lime: 0x64FC56,
     electricBlue: 0x475DFF,

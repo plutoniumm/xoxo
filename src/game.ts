@@ -1,365 +1,389 @@
 import * as THREE from "three";
 import Shapes from "./geometry";
 import CONFIG from "./conf";
+import R from "./rand";
 
-export class Board {
-  private scene: THREE.Scene;
-  cells: THREE.Mesh[] = [];
-  grid: (CellState | null)[][][];
-  markers: THREE.Object3D[] = [];
-  private offset: number;
-  private cellGeometry: THREE.BoxGeometry;
-  private cellMaterial: THREE.MeshBasicMaterial;
-  private hoverMaterial: THREE.MeshBasicMaterial;
-  constructor(scene: THREE.Scene) {
+export class Cell {
+  mesh: THREE.Mesh;
+  scene: THREE.Scene;
+  x: number;
+  y: number;
+  z: number;
+  state: CellState | null = null;
+  marker: THREE.Object3D | null = null;
+  blank: THREE.Object3D | null = null;
+  private base: THREE.MeshBasicMaterial;
+  private active: THREE.MeshBasicMaterial;
+
+  constructor(
+    scene: THREE.Scene,
+    geo: THREE.BoxGeometry,
+    mat: THREE.MeshBasicMaterial,
+    hov: THREE.MeshBasicMaterial,
+    x: number,
+    y: number,
+    z: number,
+    offset: number
+  ) {
     this.scene = scene;
-    this.scene.background = new THREE.Color(0x2D0A52);
-    this.offset =
-      ((CONFIG.GRID_SIZE - 1) * (CONFIG.CELL_SIZE + CONFIG.GAP)) / 2;
-    this.grid = Array(CONFIG.GRID_SIZE)
-      .fill(null)
-      .map(() =>
-        Array(CONFIG.GRID_SIZE)
-          .fill(null)
-          .map(() => Array(CONFIG.GRID_SIZE).fill(null))
-      );
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.base = mat;
+    this.active = hov;
 
-    this.cellGeometry = new THREE.BoxGeometry(
-      CONFIG.CELL_SIZE,
-      CONFIG.CELL_SIZE,
-      CONFIG.CELL_SIZE
-    );
-    this.cellMaterial = new THREE.MeshBasicMaterial({
-      color: CONFIG.COLORS.cream,
-      transparent: true,
-      opacity: CONFIG.OPACITY.CELL,
-    });
-    this.hoverMaterial = new THREE.MeshBasicMaterial({
-      color: CONFIG.COLORS.salmon,
-      transparent: true,
-      opacity: CONFIG.OPACITY.HOVER,
-    });
-
-    // INIT GRID
-    for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
-      for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
-        for (let z = 0; z < CONFIG.GRID_SIZE; z++) {
-          this.createCell(x, y, z);
-        }
-      }
-    }
-  }
-
-  private createCell (x: number, y: number, z: number) {
-    const cell = new THREE.Mesh(this.cellGeometry, this.cellMaterial.clone());
-    cell.position.set(
-      x * (CONFIG.CELL_SIZE + CONFIG.GAP) - this.offset,
-      y * (CONFIG.CELL_SIZE + CONFIG.GAP) - this.offset,
-      z * (CONFIG.CELL_SIZE + CONFIG.GAP) - this.offset
+    this.mesh = new THREE.Mesh(geo, mat.clone());
+    this.mesh.position.set(
+      x * (CONFIG.CELL_SIZE + CONFIG.GAP) - offset,
+      y * (CONFIG.CELL_SIZE + CONFIG.GAP) - offset,
+      z * (CONFIG.CELL_SIZE + CONFIG.GAP) - offset
     );
 
-    const blankMarker = Shapes.blank(CONFIG.CELL_SIZE);
-    blankMarker.position.copy(cell.position);
-    this.scene.add(blankMarker);
-
-    cell.userData = {
+    this.mesh.userData = {
       gx: x,
       gy: y,
       gz: z,
       state: "empty",
       marker: null,
-      blank: blankMarker,
+      blank: null
     };
-    this.scene.add(cell);
-    this.cells.push(cell);
+
+    this.addBlank();
+    this.scene.add(this.mesh);
   }
 
-  Cell (x: number, y: number, z: number): CellState | null {
-    return this.grid[x][y][z];
+  hover (flag: boolean) {
+    this.mesh.material = flag ? this.active : this.base;
   }
 
-  updateCells (
-    cell: THREE.Mesh,
-    newState: CellState | null,
-    markerMesh: THREE.Object3D | null
-  ) {
-    const { gx, gy, gz } = cell.userData;
-    this.grid[gx][gy][gz] = newState;
-    cell.userData.state = newState || "empty";
+  set (state: CellState, obj: THREE.Object3D) {
+    this.removeMarker();
+    this.removeBlank();
 
-    if (cell.userData.blank) {
-      this.scene.remove(cell.userData.blank);
-      this.unmark(cell.userData.blank);
-      cell.userData.blank = null;
+    this.state = state;
+    this.mesh.userData.state = state;
+
+    this.marker = obj;
+    this.mesh.userData.marker = obj;
+
+    obj.position.copy(this.mesh.position);
+    obj.userData.parentCell = this.mesh;
+
+    this.scene.add(obj);
+    this.grow(obj);
+  }
+
+  reset () {
+    this.removeMarker();
+    this.state = null;
+    this.mesh.userData.state = "empty";
+    this.addBlank();
+  }
+
+  private addBlank () {
+    if (this.blank) return;
+    const b = Shapes.blank(CONFIG.CELL_SIZE);
+    b.position.copy(this.mesh.position);
+    this.scene.add(b);
+    this.blank = b;
+    this.mesh.userData.blank = b;
+  }
+
+  private removeBlank () {
+    if (this.blank) {
+      this.scene.remove(this.blank);
+      this.blank = null;
+      this.mesh.userData.blank = null;
     }
+  }
 
-    if (cell.userData.marker) {
-      this.scene.remove(cell.userData.marker);
-      this.unmark(cell.userData.marker);
-      cell.userData.marker = null;
-    }
-
-    if (markerMesh) {
-      markerMesh.position.copy(cell.position);
-      markerMesh.userData.parentCell = cell;
-      this.scene.add(markerMesh);
-      this.markers.push(markerMesh);
-      cell.userData.marker = markerMesh;
-
-      markerMesh.scale.set(0, 0, 0);
-      let scale = 0;
-      const animate = () => {
-        if (scale < 1) {
-          scale += 0.1;
-          markerMesh.scale.set(scale, scale, scale);
-          requestAnimationFrame(animate);
-        }
-      };
-      animate();
+  private removeMarker () {
+    if (this.marker) {
+      this.scene.remove(this.marker);
+      this.marker = null;
+      this.mesh.userData.marker = null;
     }
   }
 
-  private unmark (obj: THREE.Object3D) {
-    const idx = this.markers.indexOf(obj);
-    if (idx >= 0) this.markers.splice(idx, 1);
-  }
-
-  highlight (cell: THREE.Mesh | null) {
-    this.cells.forEach((c) => (c.material = this.cellMaterial));
-    if (cell)
-      cell.material = this.hoverMaterial;
+  private grow (obj: THREE.Object3D) {
+    obj.scale.set(0, 0, 0);
+    let s = 0;
+    const run = () => {
+      if (s < 1) {
+        s += 0.1;
+        obj.scale.set(s, s, s);
+        requestAnimationFrame(run);
+      }
+    };
+    run();
   }
 }
 
+export class Board {
+  scene: THREE.Scene;
+  cells: THREE.Mesh[] = [];
+  grid: Cell[][][];
+  markers: THREE.Object3D[] = [];
+  private offset: number;
+  private geometry: THREE.BoxGeometry;
+  private material: THREE.MeshBasicMaterial;
+  private hoverMat: THREE.MeshBasicMaterial;
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+    this.scene.background = new THREE.Color(0x2D0A52);
+
+    this.offset = ((CONFIG.GRID_SIZE - 1) * (CONFIG.CELL_SIZE + CONFIG.GAP)) / 2;
+
+    this.geometry = new THREE.BoxGeometry(
+      CONFIG.CELL_SIZE,
+      CONFIG.CELL_SIZE,
+      CONFIG.CELL_SIZE
+    );
+
+    this.material = new THREE.MeshBasicMaterial({
+      color: CONFIG.COLORS.cream,
+      transparent: true,
+      opacity: CONFIG.OPACITY.CELL,
+    });
+
+    this.hoverMat = new THREE.MeshBasicMaterial({
+      color: CONFIG.COLORS.salmon,
+      transparent: true,
+      opacity: CONFIG.OPACITY.HOVER,
+    });
+
+    this.grid = [];
+    for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+      this.grid[x] = [];
+      for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        this.grid[x][y] = [];
+        for (let z = 0; z < CONFIG.GRID_SIZE; z++) {
+          const c = new Cell(
+            this.scene,
+            this.geometry,
+            this.material,
+            this.hoverMat,
+            x, y, z,
+            this.offset
+          );
+          this.grid[x][y][z] = c;
+          this.cells.push(c.mesh);
+        }
+      }
+    }
+  }
+
+  Cell (x: number, y: number, z: number): CellState | null {
+    return this.grid[x][y][z].state;
+  }
+
+  updateCells (
+    mesh: THREE.Mesh,
+    state: CellState | null,
+    obj: THREE.Object3D | null
+  ) {
+    const { gx, gy, gz } = mesh.userData;
+    const cell = this.grid[gx][gy][gz];
+
+    if (state && obj) {
+      cell.set(state, obj);
+      this.markers.push(obj);
+    } else {
+      const old = cell.marker;
+      cell.reset();
+      if (old) this.unmark(old);
+    }
+  }
+
+  unmark (obj: THREE.Object3D) {
+    const i = this.markers.indexOf(obj);
+    if (i >= 0) this.markers.splice(i, 1);
+  }
+
+  highlight (mesh: THREE.Mesh | null) {
+    this.cells.forEach(m => {
+      const { gx, gy, gz } = m.userData;
+      this.grid[gx][gy][gz].hover(false);
+    });
+
+    if (mesh) {
+      const { gx, gy, gz } = mesh.userData;
+      this.grid[gx][gy][gz].hover(true);
+    }
+  }
+}
 
 export class Rulz {
   board: Board;
   scene: THREE.Scene;
+
   constructor(board: Board, scene: THREE.Scene) {
     this.board = board;
     this.scene = scene;
   }
 
-  valid (cell: THREE.Mesh, player: Player): boolean {
-    const s = cell.userData.state as CellState;
-    if (s === "both")
-      return false;
-    if (s === "empty")
-      return true;
-
-    return (
-      (s === "x" && player === "o")
-      || (s === "o" && player === "x")
-    );
+  valid (mesh: THREE.Mesh, player: Player): boolean {
+    const s = mesh.userData.state as CellState;
+    if (s === "both") return false;
+    if (s === "empty") return true;
+    return (s === "x" && player === "o") || (s === "o" && player === "x");
   }
 
-  private accumulate (markers: THREE.Object3D[]) {
-    const toCollapse: number[] = [];
-    const xIdx: number[] = [];
-    const oIdx: number[] = [];
-    const bothIdx: number[] = [];
+  private collect (markers: THREE.Object3D[]) {
+    const pend: number[] = [];
+    const xs: number[] = [];
+    const os: number[] = [];
+    const bs: number[] = [];
 
     for (let i = 0; i < markers.length; i++) {
-      const data = markers[i].userData;
-      if (!data.collapsed && ["_x", "_o", "_both"].includes(data.name)) {
-        toCollapse.push(i);
-        if (data.name === "_x") xIdx.push(i);
-        else if (data.name === "_o") oIdx.push(i);
-        else bothIdx.push(i);
+      const d = markers[i].userData;
+      if (!d.collapsed && ["_x", "_o", "_both"].includes(d.name)) {
+        pend.push(i);
+        if (d.name === "_x") xs.push(i);
+        else if (d.name === "_o") os.push(i);
+        else bs.push(i);
       }
     }
-
-    return {
-      toCollapse,
-      xIdx, oIdx, bothIdx,
-      hasBoth: bothIdx.length > 0
-    };
+    return { pend, xs, os, bs, hasBoth: bs.length > 0 };
   }
 
-  private processCollapse (
+  private collapse (
     markers: THREE.Object3D[],
-    toCollapse: number[],
-    toDel: Set<number>
+    pend: number[],
+    kill: Set<number>,
+    swap?: Map<number, "x" | "o">
   ) {
-    for (const i of toCollapse) {
-      const marker = markers[i];
-      const cell = marker.userData.parentCell as THREE.Mesh;
+    for (const i of pend) {
+      const m = markers[i];
+      const mesh = m.userData.parentCell as THREE.Mesh;
+      if (!mesh) continue;
 
-      if (!cell) continue;
-      if (toDel.has(i)) {
-        this.scene.remove(marker);
-        marker.userData.collapsed = true;
+      const { gx, gy, gz } = mesh.userData;
+      const cell = this.board.grid[gx][gy][gz];
 
-        let D = cell.userData;
-        this.board.grid[D.gx][D.gy][D.gz] = null;
-
-        cell.userData.state = "empty";
-        cell.userData.marker = null;
-
-        if (!cell.userData.blank) {
-          const blank = Shapes.blank(CONFIG.CELL_SIZE);
-          blank.position.copy(cell.position);
-          this.scene.add(blank);
-          this.board.markers.push(blank);
-          cell.userData.blank = blank;
-        }
+      if (kill.has(i)) {
+        m.userData.collapsed = true;
+        cell.reset();
       } else {
-        const isX = marker.userData.name === "_x";
-        const FullShape = isX ? Shapes.cross : Shapes.sphere;
+        let type: "x" | "o";
+        if (swap && swap.has(i)) {
+          type = swap.get(i)!;
+        } else {
+          type = m.userData.name === "_x" ? "x" : "o";
+        }
 
-        const full = FullShape(CONFIG.CELL_SIZE);
-        full.position.copy(marker.position);
-        full.rotation.copy(marker.rotation);
+        const Shape = type === "x" ? Shapes.cross : Shapes.sphere;
+        const full = Shape(CONFIG.CELL_SIZE);
+
+        full.rotation.copy(m.rotation);
         full.userData = {
-          name: isX ? "_x" : "_o",
+          name: type === "x" ? "_x" : "_o",
           collapsed: true,
-          parentCell: cell
+          parentCell: mesh
         };
-        this.scene.add(full);
-        this.scene.remove(marker);
 
-        marker.userData.isReplaced = true;
-        marker.userData.replacement = full;
-        cell.userData.marker = full;
-        cell.userData.state = isX ? "x" : "o";
+        m.userData.isReplaced = true;
+        m.userData.replacement = full;
 
-        let D = cell.userData;
-        this.board.grid[D.gx][D.gy][D.gz] = isX ? "x" : "o";
+        cell.set(type, full);
       }
     }
   }
-  private reMark (markers: THREE.Object3D[], toDel: Set<number>) {
-    const newMarkers: THREE.Object3D[] = [];
 
+  private clean (markers: THREE.Object3D[], kill: Set<number>) {
+    const next: THREE.Object3D[] = [];
     for (let i = 0; i < markers.length; i++) {
-      if (toDel.has(i)) continue;
+      if (kill.has(i)) continue;
       const m = markers[i];
-      if (m.userData.isReplaced)
-        newMarkers.push(m.userData.replacement);
-      else
-        newMarkers.push(m);
+      if (m.userData.isReplaced) next.push(m.userData.replacement);
+      else next.push(m);
     }
-
-    this.board.markers = newMarkers;
+    this.board.markers = next;
   }
 
   performCollapse () {
-    const markers = this.board.markers;
-    const { toCollapse, xIdx, oIdx, bothIdx, hasBoth } = this.accumulate(markers);
+    const list = this.board.markers;
+    const { pend, xs, os, bs, hasBoth } = this.collect(list);
 
+    if (xs.length === 0 || os.length === 0) return;
+
+    let rx = R.select(xs);
+    let ro = R.select(os);
+    let rb = R.select(bs);
+
+    // FIX 1: Handle the "No Both" case by only targeting the specific X and O
     if (!hasBoth) {
-      if (xIdx.length === 0 || oIdx.length === 0)
-        return;
-
-      const randX = xIdx[Math.floor(Math.random() * xIdx.length)];
-      const randO = oIdx[Math.floor(Math.random() * oIdx.length)];
-
-      const toDel = new Set<number>([randX, randO]);
-      this.processCollapse(markers, toCollapse, toDel);
-      this.reMark(markers, toDel);
-
+      const kill = new Set([rx, ro]);
+      // Pass [rx, ro] explicitly, not 'pend'
+      this.collapse(list, [rx, ro], kill);
+      this.clean(list, kill);
       return;
     }
 
-    const randBoth = bothIdx[Math.floor(Math.random() * bothIdx.length)];
-    const isXInBoth = Math.random() < 0.5;
-    let selectedXIdx: number | null = null;
-    let selectedOIdx: number | null = null;
+    const roll = R.rand();
+    let kill: Set<number>;
+    const swap = new Map<number, "x" | "o">();
 
-    if (isXInBoth) {
-      selectedXIdx = randBoth;
-      const otherBothIdx = bothIdx.find((i) => i !== randBoth)!;
-      selectedOIdx = otherBothIdx;
+    if (roll < 0.25) {
+      kill = new Set([rb]);
+    } else if (roll < 0.5) {
+      kill = new Set([ro]);
+      swap.set(rb, "o");
     } else {
-      selectedXIdx = xIdx[Math.floor(Math.random() * xIdx.length)];
-      selectedOIdx = oIdx[Math.floor(Math.random() * oIdx.length)];
+      kill = new Set([rx]);
+      swap.set(rb, "x");
     }
 
-    const toDel = new Set<number>([selectedXIdx!, selectedOIdx!]);
-    this.processCollapse(markers, toCollapse, toDel);
-    this.reMark(markers, toDel);
+    const targets = [rx, ro, rb];
+    this.collapse(list, targets, kill, swap);
+    this.clean(list, kill);
   }
 
   checkWin (): WinResult | null {
     const grid = this.board.grid;
     const lines: number[][][] = [];
 
-    const satisfies = (val: CellState | null, player: Player) => {
-      if (player === "x")
-        return val === "x" || val === "both";
-
-      return val === "o" || val === "both";
+    const check = (c: Cell, p: Player) => {
+      if (p === "x") return c.state === "x" || c.state === "both";
+      return c.state === "o" || c.state === "both";
     };
 
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 3; j++) {
-        lines.push([
-          [0, i, j], [1, i, j], [2, i, j]
-        ]);
-        lines.push([
-          [i, 0, j], [i, 1, j], [i, 2, j]
-        ]);
-        lines.push([
-          [i, j, 0], [i, j, 1], [i, j, 2]
-        ]);
+        lines.push([[0, i, j], [1, i, j], [2, i, j]]);
+        lines.push([[i, 0, j], [i, 1, j], [i, 2, j]]);
+        lines.push([[i, j, 0], [i, j, 1], [i, j, 2]]);
       }
     }
 
     for (let i = 0; i < 3; i++) {
-      lines.push([
-        [i, 0, 0], [i, 1, 1], [i, 2, 2]
-      ]);
-      lines.push([
-        [i, 0, 2], [i, 1, 1], [i, 2, 0]
-      ]);
-      lines.push([
-        [0, i, 0], [1, i, 1], [2, i, 2]
-      ]);
-      lines.push([
-        [2, i, 0], [1, i, 1], [0, i, 2]
-      ]);
-      lines.push([
-        [0, 0, i], [1, 1, i], [2, 2, i]
-      ]);
-      lines.push([
-        [2, 0, i], [1, 1, i], [0, 2, i]
-      ]);
+      lines.push([[i, 0, 0], [i, 1, 1], [i, 2, 2]]);
+      lines.push([[i, 0, 2], [i, 1, 1], [i, 2, 0]]);
+      lines.push([[0, i, 0], [1, i, 1], [2, i, 2]]);
+      lines.push([[2, i, 0], [1, i, 1], [0, i, 2]]);
+      lines.push([[0, 0, i], [1, 1, i], [2, 2, i]]);
+      lines.push([[2, 0, i], [1, 1, i], [0, 2, i]]);
     }
 
-    lines.push([
-      [0, 0, 0], [1, 1, 1], [2, 2, 2]
-    ]);
-    lines.push([
-      [2, 0, 0], [1, 1, 1], [0, 2, 2]
-    ]);
-    lines.push([
-      [0, 2, 0], [1, 1, 1], [2, 0, 2]
-    ]);
-    lines.push([
-      [0, 0, 2], [1, 1, 1], [2, 2, 0]
-    ]);
+    lines.push([[0, 0, 0], [1, 1, 1], [2, 2, 2]]);
+    lines.push([[2, 0, 0], [1, 1, 1], [0, 2, 2]]);
+    lines.push([[0, 2, 0], [1, 1, 1], [2, 0, 2]]);
+    lines.push([[0, 0, 2], [1, 1, 1], [2, 2, 0]]);
 
     for (const line of lines) {
       const [a, b, c] = line;
-      const vA = grid[a[0]][a[1]][a[2]];
-      const vB = grid[b[0]][b[1]][b[2]];
-      const vC = grid[c[0]][c[1]][c[2]];
+      const cA = grid[a[0]][a[1]][a[2]];
+      const cB = grid[b[0]][b[1]][b[2]];
+      const cC = grid[c[0]][c[1]][c[2]];
 
-      if (satisfies(vA, "x") && satisfies(vB, "x") && satisfies(vC, "x"))
-        return {
-          start: a,
-          end: c,
-          winner: "x"
-        };
-
-      if (satisfies(vA, "o") && satisfies(vB, "o") && satisfies(vC, "o"))
-        return {
-          start: a,
-          end: c,
-          winner: "o"
-        };
+      if (check(cA, "x") && check(cB, "x") && check(cC, "x")) {
+        return { start: a, end: c, winner: "x" };
+      }
+      if (check(cA, "o") && check(cB, "o") && check(cC, "o")) {
+        return { start: a, end: c, winner: "o" };
+      }
     }
-
     return null;
   }
 }
