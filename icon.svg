@@ -3,14 +3,14 @@
   <defs>
     <linearGradient id="x" x1="0" y1="0" x2="100%" y2="100%">
       <stop offset="0" stop-color="#55c"/>
-      <stop offset="1" stop-color="#99f"/>
+      <stop offset="1" stop-color="#315"/>
     </linearGradient>
   </defs>
 
   <circle fill="url(#x)" cx="50%" cy="50%" r="50%"></circle>
 
-  <line x1="28" y1="28" x2="72" y2="72" stroke="#fff" stroke-width="2"/>
+  <line x1="30" y1="30" x2="68" y2="68" stroke="#fff" stroke-width="4"/>
 
-  <text x="10" y="35" fill="#fff">⊗</text>
-  <text x="66" y="91" fill="#fff">⊗</text>
+  <text x="12" y="37" fill="#fff">⊗</text>
+  <text x="64" y="88" fill="#fff">⊗</text>
 </svg>
