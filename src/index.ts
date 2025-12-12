@@ -121,6 +121,8 @@ class Game {
     }
   }
 
+  // index.ts
+
   executeMove (cell: THREE.Mesh) {
     const { gx, gy, gz } = cell.userData;
     const currentState = this.board.Cell(gx, gy, gz);
@@ -152,17 +154,21 @@ class Game {
 
     this.board.updateCells(cell, newState, markerMesh);
 
-    const win = this.rules.checkWin();
-    if (win) return this.handleWin(win);
-
     this.movesThisTurn++;
     if (this.movesThisTurn >= 2) {
       this.movesThisTurn = 0;
-      this.currentPlayer = this.currentPlayer === "x" ? "o" : "x";
+      this.currentPlayer = this.currentPlayer === "x"
+        ? "o" : "x";
+
       if (this.currentPlayer === "x") {
         this.rules.performCollapse();
       }
     }
+
+    const win = this.rules.checkWin();
+    if (win)
+      return this.handleWin(win);
+
     this.updateUI();
   }
 

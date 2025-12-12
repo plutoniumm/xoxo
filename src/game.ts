@@ -231,21 +231,22 @@ export class Rulz {
   }
 
   private collect (markers: THREE.Object3D[]) {
-    const pend: number[] = [];
     const xs: number[] = [];
     const os: number[] = [];
     const bs: number[] = [];
 
     for (let i = 0; i < markers.length; i++) {
       const d = markers[i].userData;
-      if (!d.collapsed && ["_x", "_o", "_both"].includes(d.name)) {
-        pend.push(i);
+      if (
+        !d.collapsed
+        && ["_x", "_o", "_both"].includes(d.name)
+      ) {
         if (d.name === "_x") xs.push(i);
         else if (d.name === "_o") os.push(i);
         else bs.push(i);
       }
     }
-    return { pend, xs, os, bs, hasBoth: bs.length > 0 };
+    return { xs, os, bs, hasBoth: bs.length > 0 };
   }
 
   private collapse (
@@ -295,48 +296,61 @@ export class Rulz {
     const next: THREE.Object3D[] = [];
     for (let i = 0; i < markers.length; i++) {
       if (kill.has(i)) continue;
+
       const m = markers[i];
       if (m.userData.isReplaced) next.push(m.userData.replacement);
       else next.push(m);
     }
+
     this.board.markers = next;
   }
 
   performCollapse () {
     const list = this.board.markers;
-    const { pend, xs, os, bs, hasBoth } = this.collect(list);
+    const { xs, os, bs, hasBoth } = this.collect(list);
 
-    if (xs.length === 0 || os.length === 0) return;
+    if (!xs.length || !os.length) return;
 
     let rx = R.select(xs);
     let ro = R.select(os);
     let rb = R.select(bs);
 
-    // FIX 1: Handle the "No Both" case by only targeting the specific X and O
-    if (!hasBoth) {
-      const kill = new Set([rx, ro]);
-      // Pass [rx, ro] explicitly, not 'pend'
-      this.collapse(list, [rx, ro], kill);
-      this.clean(list, kill);
-      return;
-    }
+    const allCandidates = [...xs, ...os, ...bs];
 
-    const roll = R.rand();
-    let kill: Set<number>;
+    const kill = new Set<number>(allCandidates);
     const swap = new Map<number, "x" | "o">();
 
-    if (roll < 0.25) {
-      kill = new Set([rb]);
-    } else if (roll < 0.5) {
-      kill = new Set([ro]);
-      swap.set(rb, "o");
+    const rescue = (idx: number) => kill.delete(idx);
+
+    if (!hasBoth) {
+      // Simple Case: Keep the selected X and O.
+      // Everyone else remains in 'kill' and will be wiped.
+      rescue(rx);
+      rescue(ro);
     } else {
-      kill = new Set([rx]);
-      swap.set(rb, "x");
+      const roll = R.rand();
+
+      if (roll < 0.25) {
+        // Case 1: Independent Collapse
+        // The "Both" marker is destroyed. We keep the distinct X and O.
+        rescue(rx);
+        rescue(ro);
+      } else if (roll < 0.5) {
+        // Case 2: "Both" collapses into O
+        // We keep the distinct X. We swap "Both" to O. The distinct O dies.
+        rescue(rx);
+        rescue(rb);
+        swap.set(rb, "o");
+      } else {
+        // Case 3: "Both" collapses into X
+        // We keep the distinct O. We swap "Both" to X. The distinct X dies.
+        rescue(ro);
+        rescue(rb);
+        swap.set(rb, "x");
+      }
     }
 
-    const targets = [rx, ro, rb];
-    this.collapse(list, targets, kill, swap);
+    this.collapse(list, allCandidates, kill, swap);
     this.clean(list, kill);
   }
 
@@ -345,8 +359,13 @@ export class Rulz {
     const lines: number[][][] = [];
 
     const check = (c: Cell, p: Player) => {
-      if (p === "x") return c.state === "x" || c.state === "both";
-      return c.state === "o" || c.state === "both";
+      const stateMatch = (p === "x")
+        ? (c.state === "x")
+        : (c.state === "o");
+
+      const isCollapsed = c.marker?.userData?.collapsed;
+
+      return stateMatch && isCollapsed;
     };
 
     for (let i = 0; i < 3; i++) {
