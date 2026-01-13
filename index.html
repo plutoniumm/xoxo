@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>XOXO – Rules</title>
   <link rel="stylesheet" href="https://manav.ch/atomic.css">
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/xoxo/icon.svg" />
 
   <style>
     body {
@@ -60,6 +60,8 @@
       filter: brightness(1.06);
     }
   </style>
+  <script type="module" crossorigin src="/xoxo/assets/main-B_L3HQ0l.js"></script>
+  <link rel="modulepreload" crossorigin href="/xoxo/assets/geometry-BRvmb3pZ.js">
 </head>
 
 <body>
@@ -78,82 +80,10 @@
         <li>Continue until the board resolves; three in a row wins!</li>
       </ul>
 
-      <a href="/game.html" class="btn rx10 p10 fw5" id="start-btn">Start Game</a>
+      <a href="/xoxo/game.html" class="btn rx10 p10 fw5" id="start-btn">Start Game</a>
     </main>
   </div>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import Shapes from '/src/geometry.ts';
-
-    const makeScene = ( mountEl ) => {
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color( 0x2D0A52 );
-
-      const camera = new THREE.PerspectiveCamera( 55, 1, 0.1, 100 );
-      camera.position.set( 0, 0, 2.6 );
-
-      const renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
-      renderer.setPixelRatio( window.devicePixelRatio );
-      mountEl.appendChild( renderer.domElement );
-
-      const light1 = new THREE.DirectionalLight( 0xffffff, 1.0 );
-      light1.position.set( 2, 3, 4 );
-      const light2 = new THREE.AmbientLight( 0xffffff, 0.4 );
-      scene.add( light1, light2 );
-
-      const group = new THREE.Group();
-      const size = 0.32;
-      const gap = 0.5;
-
-      // Randomly choose shape type for each cell
-      const choices = [
-        ( s ) => Shapes.cross( s ),
-        ( s ) => Shapes.half_cross( s ),
-        ( s ) => Shapes.sphere( s ),
-        ( s ) => Shapes.half_sphere( s ),
-      ];
-
-      for ( let x = -1;x <= 1;x++ ) {
-        for ( let y = -1;y <= 1;y++ ) {
-          for ( let z = -1;z <= 1;z++ ) {
-            const create = choices[ Math.floor( Math.random() * choices.length ) ];
-            const shape = create( size );
-            shape.position.set( x * gap, y * gap, z * gap );
-            group.add( shape );
-          }
-        }
-      }
-      group.scale.set( 1.35, 1.35, 1.35 );
-      scene.add( group );
-
-      const onResize = () => {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        renderer.setSize( w, h );
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-      };
-      window.addEventListener( 'resize', onResize );
-      onResize();
-
-      const clock = new THREE.Clock();
-      const animate = () => {
-        const t = clock.getElapsedTime();
-        group.rotation.y = t * 0.25;
-        group.rotation.x = Math.sin( t * 0.15 ) * 0.1;
-        renderer.render( scene, camera );
-        requestAnimationFrame( animate );
-      };
-      animate();
-
-      return { scene, camera, renderer };
-    };
-
-    // Mount one full-screen scene
-    const bg = document.getElementById( 'bg-3d' );
-    makeScene( bg );
-  </script>
 </body>
 
 </html>
