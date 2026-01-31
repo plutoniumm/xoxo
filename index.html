@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="https://manav.ch/atomic.css">
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 
+  <!-- analytics on plutoniumm.github.io -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+    data-cf-beacon='{"token": "6dd90a981e8b47dd9725e27e28491525"}'></script>
+
   <style>
     body {
       background: #2D0A52;
@@ -78,7 +82,7 @@
         <li>Continue until the board resolves; three in a row wins!</li>
       </ul>
 
-      <button class="btn rx10 p10 fw5" id="start-btn" aria-label="Start game">Start Game</button>
+      <a href="/xoxo/game.html" class="btn rx10 p10 fw5" id="start-btn">Start Game</a>
     </main>
   </div>
 
@@ -153,12 +157,6 @@
     // Mount one full-screen scene
     const bg = document.getElementById( 'bg-3d' );
     makeScene( bg );
-
-    document
-      .getElementById( 'start-btn' )
-      .addEventListener( 'click', () => {
-        window.location.href = '/game.html';
-      } );
   </script>
 </body>
 
