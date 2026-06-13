@@ -11,18 +11,20 @@
   <!-- analytics on plutoniumm.github.io -->
   <script defer src='https://static.cloudflareinsights.com/beacon.min.js'
     data-cf-beacon='{"token": "6dd90a981e8b47dd9725e27e28491525"}'></script>
-  <script type="module" crossorigin src="/xoxo/assets/game-BXXuZuy9.js"></script>
-  <link rel="modulepreload" crossorigin href="/xoxo/assets/geometry-BRvmb3pZ.js">
+  <script type="module" crossorigin src="/xoxo/assets/game-DbjWVT9Q.js"></script>
+  <link rel="modulepreload" crossorigin href="/xoxo/assets/geometry-TsYq6w-r.js">
 </head>
 
 <body>
   <div id="info">
-    <h1>⊗-⊗</h1>
-    <p>
-      Turn:
-      <span id="turn-indicator">X (Star)</span>
+    <h1>⊗-⊗ <span class="sub">quantum tic-tac-toe</span></h1>
+    <p id="turn">X (Cross) — move 1</p>
+    <p id="status">Click two cells to place a superposed mark.</p>
+    <p id="meter" class="muted">quantum bits left: … · superpositions: 0</p>
+    <p class="muted hint">
+      Each turn places one mark across <em>two</em> cells. When your links close a
+      loop, a quantum measurement collapses them to definite marks. Three in a row wins.
     </p>
-    <p id="status">Click a cube to play</p>
   </div>
 
 </body>

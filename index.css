@@ -25,7 +25,27 @@ h1 {
   margin: 0 0 5px 0;
 }
 
+h1 .sub {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.6;
+}
+
 p {
   font-size: 0.9rem;
-  margin: 0;
+  margin: 0 0 4px 0;
+}
+
+#info {
+  max-width: 320px;
+}
+
+.muted {
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.hint {
+  margin-top: 8px;
+  line-height: 1.45;
 }
