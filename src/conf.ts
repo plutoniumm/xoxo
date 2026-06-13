@@ -15,5 +15,5 @@ export default {
     rose: 0xDF8C88,
     lime: 0x64FC56,
     electricBlue: 0x475DFF,
-  }
+  },
 };

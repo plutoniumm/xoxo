@@ -3,6 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "qrng": "node scripts/fetch-qrng.mjs",
     "build": "tsc && vite build",
     "predeploy": "npm run build",
     "deploy": "npx gh-pages -d dist"
